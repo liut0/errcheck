@@ -183,21 +183,8 @@ func (c *Checker) CheckPackages(paths ...string) error {
 			defer wg.Done()
 			c.logf("Checking %s", pkgInfo.Pkg.Path())
 
-			v := &visitor{
-				prog:    program,
-				pkg:     pkgInfo,
-				ignore:  c.Ignore,
-				blank:   c.Blank,
-				asserts: c.Asserts,
-				lines:   make(map[string][]string),
-				exclude: c.exclude,
-				errors:  []UncheckedError{},
-			}
-
-			for _, astFile := range v.pkg.Files {
-				ast.Walk(v, astFile)
-			}
-			u.Append(v.errors...)
+			errs := c.CheckParsedPackage(pkgInfo, program.Fset)
+			u.Append(errs...)
 		}(pkgInfo)
 	}
 
@@ -209,9 +196,28 @@ func (c *Checker) CheckPackages(paths ...string) error {
 	return nil
 }
 
+func (c *Checker) CheckParsedPackage(pkg *loader.PackageInfo, fset *token.FileSet) []UncheckedError {
+	v := &visitor{
+		fset:    fset,
+		pkg:     pkg,
+		ignore:  c.Ignore,
+		blank:   c.Blank,
+		asserts: c.Asserts,
+		lines:   make(map[string][]string),
+		exclude: c.exclude,
+		errors:  []UncheckedError{},
+	}
+
+	for _, astFile := range v.pkg.Files {
+		ast.Walk(v, astFile)
+	}
+
+	return v.errors
+}
+
 // visitor implements the errcheck algorithm
 type visitor struct {
-	prog    *loader.Program
+	fset    *token.FileSet
 	pkg     *loader.PackageInfo
 	ignore  map[string]*regexp.Regexp
 	blank   bool
@@ -362,7 +368,7 @@ func (v *visitor) isRecover(call *ast.CallExpr) bool {
 }
 
 func (v *visitor) addErrorAtPosition(position token.Pos, call *ast.CallExpr) {
-	pos := v.prog.Fset.Position(position)
+	pos := v.fset.Position(position)
 	lines, ok := v.lines[pos.Filename]
 	if !ok {
 		lines = readfile(pos.Filename)
