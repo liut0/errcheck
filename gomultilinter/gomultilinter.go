@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kisielk/errcheck/internal/errcheck"
+	"github.com/liut0/gomultilinter-errcheck/internal/errcheck"
 	"github.com/liut0/gomultilinter/api"
 )
 
